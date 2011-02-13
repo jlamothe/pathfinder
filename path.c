@@ -5,7 +5,7 @@
 
 /*
 
-Pathfinder 1.0
+Pathfinder 1.1
 
 Copyright (C) 2010
 Jonathan Lamothe <jonathan@jlamothe.net>
@@ -73,6 +73,11 @@ struct Coords delta[] = {
 
    @param moves The number of moves successfully completed.
 
+   @param progress The estimated percentage of possible permutations
+   that have been exhausted.
+
+   @param last_prog A pointer to the last progress value reported.
+
    @return 1 if a path was found; 0 otherwise.
  */
 int path_iter(int **table,
@@ -80,16 +85,31 @@ int path_iter(int **table,
 	      const struct Coords *delta,
 	      int delta_size,
 	      struct Coords pos,
-	      int moves)
+	      int moves,
+	      float progress,
+	      int *last_prog)
 {
 
   /* Declare local variables: */
   struct Coords new_pos;
+  float increment;
   int i;
 
   /* Check to see if enough moves were successfully completed: */
   if(moves >= table_size.x * table_size.y)
     return 1;			/* Yes.  Hooray! */
+
+  /* Calculate how much progress each sub-move represents: */
+  increment = 1.0 / delta_size;
+  for(i = 0; i < moves; i++)
+    increment /= delta_size;
+
+  /* If there has been more than a 1% progress increase, report it: */
+  if(progress * 100 >= *last_prog + 1)
+    {
+      *last_prog = progress * 100;
+      printf("%3d%% completed.\n", *last_prog);
+    }
 
   /* Check to see if the current position is inside the table: */
   if(pos.x < 0 || pos.x >= table_size.x || pos.y < 0 ||
@@ -115,7 +135,9 @@ int path_iter(int **table,
 		   delta,
 		   delta_size,
 		   new_pos,
-		   moves))
+		   moves,
+		   progress + i * increment,
+		   last_prog))
 	return 1;		/* Hooray!  We found a path. */
     }
 
@@ -149,7 +171,7 @@ int path_find(int **table,
 {
 
   /* Declare local variables: */
-  int i, j;
+  int i, j, progress = 0;
 
   /* Fill the table with zeros: */
   for(i = 0; i < table_size.y; i++)
@@ -157,7 +179,14 @@ int path_find(int **table,
       table[i][j] = 0;
 
   /* Start the first move: */
-  return path_iter(table, table_size, delta, delta_size, pos, 0);
+  return path_iter(table,
+		   table_size,
+		   delta,
+		   delta_size,
+		   pos,
+		   0,
+		   0,
+		   &progress);
 }
 
 int main()
@@ -175,7 +204,7 @@ int main()
       table[i] = calloc(COLS, sizeof(int));
     }
 
-  /* Set the inital position: */
+  /* Set the initial position: */
   size.x = COLS;
   size.y = ROWS;
 
